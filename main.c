@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 //Objective Find  program whose output matche a fibonacci over the range 0 <= x <= 100
 //function set +,-,*,% 
@@ -10,7 +11,7 @@
 //initial pop rramped haf-and-half
 //parameters population size 1000, 90% sub tree crossover,5% reproduction,5% sub tree size limits
 //terminationn individual with gfitness better than 0.1 found
-#define population 1000
+#define population 10
 
 #define crossover  0.9
 #define reproduction  0.05
@@ -31,7 +32,8 @@ typedef enum {
 
 typedef enum{
     TERM_SET,
-    FUNC_SET
+    FUNC_SET,
+    CONST
 }SET;
 
 typedef union FUNCTION {
@@ -39,6 +41,12 @@ typedef union FUNCTION {
     char func;// vai ser +,-,%
     //char vari;// vai ser o x
 }FUNCTION;
+
+typedef struct 
+{   
+    FUNCTION func;
+    TYPE type;
+}tupla_retorno;
 
 typedef struct NO 
 {
@@ -54,25 +62,38 @@ typedef struct NO
     
 }NO;
 
-
-
 typedef struct GP
 {
     NO           *pai[population];
     char                *func_set;
-    char *term_set;unsigned max_d;
+    char *term_set;
+    unsigned max_d;
     char                   method;
-    struct         GP   (*init)();
-    void  (*fitness)(struct GP *);
+    //struct         GP   (*init)();
+    void (*fitness)(struct GP *);
+    void (*initialisation_population)(struct GP *);
+    void (*get_exp)(NO* ,char *);
+    double (*valor_arvore)(NO* ,double );
+    void (*runGP)(struct GP *);
+    void (*Crossover)(struct GP *);
+
     
 }GP;
 
-void
-init(){
+NO *
+initialize_individual(char *func_set, char *term_set,unsigned max_d, char method);
 
+GP
+init(char *func_set, char *term_set,unsigned max_d, char method){
+    GP p;
+    p.func_set = func_set;
+    p.term_set = term_set;
+    p.max_d    =    max_d;
+    p.method   =   method;
+
+    //p.fitness  = fitness;
+    return p;
 }
-
-NO *initialize_individual(char *func_set, char *term_set,unsigned max_d, char method);
 
 void 
 initialisation_population(GP *gp){
@@ -83,44 +104,51 @@ initialisation_population(GP *gp){
 
 }
 
-typedef struct 
-{   
-    FUNCTION func;
-    TYPE type;
-}tupla_retorno;
-
 tupla_retorno  
 choose_random_element_term(char *set,SET type){
-    char p = set[rand() % strlen(set)]; 
+    int p = (int)(rand() % strlen(set));
+
 
     switch (set[p])
     {
     case 'c':{
-        return (tupla_retorno){(double)rand(),NUM};
+        return (tupla_retorno){.func.num = (double)rand(),.type = NUM};
         break;
     }
     
     default:
-        if(type == TERM_SET)
-            return (tupla_retorno){{.func = set[p]},VARI};
+        if(type == TERM_SET){
+            if(set[p] == 'c')
+                return (tupla_retorno){{.func = (double)rand()},.type = NUM};
+            else{
+                return (tupla_retorno){{.func = set[p]},.type = VARI};
+            }
+        }
         else if(type == FUNC_SET)
-            return (tupla_retorno){{.func = set[p]},FUNC};
+            return (tupla_retorno){{.func = set[p]},.type = FUNC};
         break;
     }
 }
+
 NO*
 initialize_individual(char *func_set,char *term_set,unsigned max_d, char method){
     double p = (double)rand() /RAND_MAX;
     NO *temp = malloc(sizeof(NO));
+    temp->dir = NULL;
+    temp->esq = NULL;
+    if (temp == NULL) {
+        printf("Erro ao alocar memória\n");
+        return NULL;
+    }
 
-    if (max_d = 0 || (method == 'g' && 
+    if (max_d == 0 || (method == 'g' && 
                       p < (strlen(term_set)/
                       (strlen(term_set) + strlen(func_set)) ) 
                      ) 
         ){
             tupla_retorno ret = choose_random_element_term(term_set,TERM_SET);
             temp->tipo = ret.type;
-            if(ret.type == 'c')
+            if(ret.type == NUM)
                 temp->function.num = ret.func.num;
             else
                 temp->function.func = ret.func.func;
@@ -146,29 +174,27 @@ Crossover(){
 
 }
 
-
-
 void 
 get_exp(NO* pt,char *explecao){
 
-    if(pt->esq == NULL)
+    if(pt->esq != NULL)
         get_exp(pt->esq,explecao);
 
     if(pt->tipo == NUM){
         char buffer[100];
-        sprintf(buffer,"&.99f",pt->function.num);
+        sprintf(buffer,"%.5f",pt->function.num);
         strcat(explecao,buffer);
     }else{
         strcat(explecao,&pt->function.func);
     }
 
 
-    if(pt->dir == NULL)
+    if(pt->dir != NULL)
         get_exp(pt->dir,explecao);
 }
 
-
-double valor_arvore(NO* pt,double x){
+double 
+valor_arvore(NO* pt,double x){
     if(pt->tipo == NUM)
         return pt->function.num;
     
@@ -181,15 +207,18 @@ double valor_arvore(NO* pt,double x){
             return valor_arvore(pt->dir,x) + valor_arvore(pt->esq,x);
         }
         switch (pt->function.func){
-            case '+':
+            case '+':{
                 return valor_arvore(pt->dir,x) + valor_arvore(pt->esq,x);
                 break;
-            case '-':
+                }
+            case '-':{
                 return valor_arvore(pt->dir,x) - valor_arvore(pt->esq,x);
                 break;
-            case '*':
+                }
+            case '*':{
                 return valor_arvore(pt->dir,x) * valor_arvore(pt->esq,x);
                 break;
+                }
             case '%': {
                 double tem1 = valor_arvore(pt->dir,x);
                 if(tem1 == 0)
@@ -206,19 +235,20 @@ double valor_arvore(NO* pt,double x){
     }
 }
 
-double
+void
 fitness(GP *gp){
     unsigned v[100] = {1,1};
     for(unsigned i = 2;i < 100;i++){
         v[i] = v[i-2] + v[i-1];
     }
     float erro = 0;
-    for(unsigned i =0;i < 100;i++){
-        for(unsigned n =0;i <100;i++){
-            erro += abs(valor_arvore(gp->pai[i],n) - v[n]); 
+    for(unsigned i = 0;i < population;i++){
+        for(unsigned n = 0;n <100; n++){
+            erro += fabs(valor_arvore(gp->pai[i],n) - v[n]); 
         }
         gp->pai[i]->erro = erro;
     }
+    
 }
 
 void
@@ -228,8 +258,28 @@ runGP(){
 
 int 
 main(){
+    srand(time(NULL));
+    char func_set[] = {'+','-','*','%','\0'};
+    char term_set[] = {'c','x','\0'};
+    char method     = 'c';
+    char explecao[100000];
+    explecao[0] = '\0';
+    GP gp = init(func_set,term_set,10,method);
+    //gp.initialisation_population(&gp);
+    initialisation_population(&gp);
+    explecao[0] = '\0';
+    get_exp(gp.pai[0],explecao);
+    printf("explecao : %s \n",explecao);
 
-    
+   
+    printf("valor com 2 :%f \n",valor_arvore(gp.pai[0],2));
 
+    fitness(&gp);
+
+    for(unsigned i =0; i < population; i++){
+        printf("erro(%d) = %f \n",i,gp.pai[i]->erro);
+    }
     return 0;
 }
+
+//implementar Crossover e ajutar a inicilizaca para ser metade do tipo
