@@ -4,7 +4,7 @@
 #include <math.h>
 
 //Objective Find  program whose output matche a fibonacci over the range 0 <= x <= 100
-//function set +,-,% 
+//function set +,-,*,% 
 //terminal set x end constants 
 //fitness proportionate 
 //initial pop rramped haf-and-half
@@ -41,7 +41,7 @@ typedef struct NO
    FUNCTION function;
    struct NO* dir;
    struct NO* esq;
-   //char funcao[tam_list];
+
    double erro;
    
    Bool ecostura;
@@ -53,14 +53,32 @@ typedef struct NO
 
 typedef struct GP
 {
-    NO* pai[population];
-    struct GP (*init)();
-    void      (*fitness)(GP *);
+    NO*   pai[population];
+    struct GP   (*init)();
+    void (*fitness)(GP *);
     
 
 
 
 }GP;
+
+void
+init(){
+
+}
+
+void 
+initialisation_population(){
+
+    for(unsigned i = 0; i < population; i++){
+
+    }
+
+}
+void
+initialize_individual(){
+
+}
 
 void 
 Crossover(){
@@ -69,109 +87,62 @@ Crossover(){
 
 
 
-
 void 
-get_exp(NO* pt,double *valor){
+get_exp(NO* pt,char *explecao){
 
-    if(pt->esq != NULL)
-        get_exp(pt->esq,valor);
+    if(pt->ecostura == F)
+        get_exp(pt->esq,explecao);
 
     if(pt->tipo == NUM){
-        *valor = 
+        char buffer[100];
+        buffer[0] = '\0';
+        strcat(explecao,sprintf(buffer,"&.99f",pt->function.num));
+    }else{
+        strcat(explecao,pt->function.func);
     }
 
 
-    if(pt->dir != NULL)
-        get_exp(pt->dir,valor);
+    if(pt->dcostura == F)
+        get_exp(pt->dir,explecao);
 }
 
-void
-visita(char func,double y,double *resu){
 
-}
-
-double
-valor(NO* ptraiz,double x,double *resultado){
-    NO* pt = ptraiz;
-
-    if(pt == ptraiz)
-        return 0;
-
-    while (pt->ecostura == V){
-        pt = pt->esq;
-    }
-
-
+double valor_arvore(NO* pt,double x){
     if(pt->tipo == NUM)
-        *resultado = pt->function.num;
-    else
-        *resultado = x;
+        return pt->function.num;
     
-    while(pt != ptraiz){
-        //if()
-        //visita();
+    if(pt->tipo == VARI)
+        return x;
 
-        char temp;
-        if(pt->ecostura == V){
-            
-            if(pt->tipo == NUM){
-                visita(pt->dir->function.func, pt->dir->dir->function.num,resultado);
-                pt = pt->dir->dir;
-            }else if(pt->tipo == VARI){
-                visita(pt->dir->function.func, pt->dir->dir->function.num,resultado);
-                pt = pt->dir->dir;
+
+    if(pt->tipo == FUNC){
+        if(pt->function.func == '+'){
+            return valor(pt->dir,x) + valor(pt->esq,x);
+        }
+        switch (pt->function.func){
+            case '+':
+                return valor(pt->dir,x) + valor(pt->esq,x);
+                break;
+            case '-':
+                return valor(pt->dir,x) - valor(pt->esq,x);
+                break;
+            case '*':
+                return valor(pt->dir,x) * valor(pt->esq,x);
+                break;
+            case '%': {
+                double tem1 = valor(pt->dir,x);
+                if(tem1 == 0)
+                    return 1;
+                return valor(pt->esq,x) / tem1;
+                break;
             }
-            temp = pt->dir->function.func;
-        }else{
-            pt = pt->dir;
-            while (pt->ecostura = F){
-                pt = pt->esq;
+            default: {
+                printf("func invalida\n");
+                exit(1);
+                break;
             }
-            
         }
     }
-}
-
-double
-valor(NO* ptraiz,double x,double *resultado){
-    NO* pt = ptraiz;
-
-    if(pt == ptraiz)
-        return 0;
-
-    while (pt->ecostura == V){
-        pt = pt->esq;
-    }
-    
-
-    
-    /*
-    while(pt != ptraiz){
-        if()
-        //visita();
-
-
-        if(pt->ecostura == V){
-            pt = pt->dir;
-        }else{
-            pt = pt->dir;
-            while (pt->ecostura = F){
-                pt = pt->esq;
-            }
-            
-        }
-    }
-    */
-}
-
-
-double 
-exec(char* expl,unsigned n){
-    unsigned tam  = strlen(expl);
-
-    
-    
-
 }
 
 double
@@ -183,12 +154,16 @@ fitness(GP *gp){
     float erro = 0;
     for(unsigned i =0;i < 100;i++){
         for(unsigned n =0;i <100;i++){
-            erro += abs(exec(gp->pai[i]->funcao,n) - v[n]); 
+            erro += abs(valor_arvore(gp->pai[i],n) - v[n]); 
         }
         gp->pai[i]->erro = erro;
     }
 }
 
+void
+runGP(){
+
+}
 
 int 
 main(){
