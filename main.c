@@ -18,14 +18,21 @@
 
 #define tam_list 1000
 
+typedef enum{
+    F,
+    V
+} Bool;
+
 typedef enum {
-    CONST,
+    VARI,
+    NUM,
     FUNC
 } TYPE;
 
 typedef union FUNCTION {
-    float Const;
-    char func;
+    double num; //vai ser num 
+    char func;// vai ser +,-,%
+    char vari;// vai ser o x
 }FUNCTION;
 
 typedef struct NO 
@@ -34,9 +41,11 @@ typedef struct NO
    FUNCTION function;
    struct NO* dir;
    struct NO* esq;
-   char funcao[tam_list];
+   //char funcao[tam_list];
    double erro;
    
+   Bool ecostura;
+   Bool dcostura;
     
 }NO;
 
@@ -58,22 +67,103 @@ Crossover(){
 
 }
 
+
+
+
 void 
-get_exp(NO* pt,char* expl){
+get_exp(NO* pt,double *valor){
 
     if(pt->esq != NULL)
-        get_exp(pt->esq,expl);
+        get_exp(pt->esq,valor);
 
-    if(pt->tipo == FUNC)
-        get_exp(expl,pt->function.func);
-    else{
-        char buffer[10];
-        sprintf(buffer,"%f",pt->function.Const);
-        strcat(expl,buffer);
+    if(pt->tipo == NUM){
+        *valor = 
     }
+
+
     if(pt->dir != NULL)
-        get_exp(pt->dir,expl);
+        get_exp(pt->dir,valor);
 }
+
+void
+visita(char func,double y,double *resu){
+
+}
+
+double
+valor(NO* ptraiz,double x,double *resultado){
+    NO* pt = ptraiz;
+
+    if(pt == ptraiz)
+        return 0;
+
+    while (pt->ecostura == V){
+        pt = pt->esq;
+    }
+
+
+    if(pt->tipo == NUM)
+        *resultado = pt->function.num;
+    else
+        *resultado = x;
+    
+    while(pt != ptraiz){
+        //if()
+        //visita();
+
+        char temp;
+        if(pt->ecostura == V){
+            
+            if(pt->tipo == NUM){
+                visita(pt->dir->function.func, pt->dir->dir->function.num,resultado);
+                pt = pt->dir->dir;
+            }else if(pt->tipo == VARI){
+                visita(pt->dir->function.func, pt->dir->dir->function.num,resultado);
+                pt = pt->dir->dir;
+            }
+            temp = pt->dir->function.func;
+        }else{
+            pt = pt->dir;
+            while (pt->ecostura = F){
+                pt = pt->esq;
+            }
+            
+        }
+    }
+}
+
+double
+valor(NO* ptraiz,double x,double *resultado){
+    NO* pt = ptraiz;
+
+    if(pt == ptraiz)
+        return 0;
+
+    while (pt->ecostura == V){
+        pt = pt->esq;
+    }
+    
+
+    
+    /*
+    while(pt != ptraiz){
+        if()
+        //visita();
+
+
+        if(pt->ecostura == V){
+            pt = pt->dir;
+        }else{
+            pt = pt->dir;
+            while (pt->ecostura = F){
+                pt = pt->esq;
+            }
+            
+        }
+    }
+    */
+}
+
 
 double 
 exec(char* expl,unsigned n){
