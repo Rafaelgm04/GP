@@ -17,8 +17,8 @@
 #define reproduction  0.95 //0.05
 #define mutação  1 // = 0.05
 
-#define MAX_D 15
-
+#define MAX_D 1
+// se o numerod e torneio for maior que o numero da populacao vai dar loop infinito!!!
 
 typedef enum{
     F,
@@ -193,7 +193,7 @@ tournament_selection(GP *gp,NO* tira){
     for(unsigned i =0;i < gp->num_de_individuos_torneio;i++)
         individuos[i] = NULL;
     
-    for(unsigned i = 0;i < gp->num_de_individuos_torneio;i++){
+    for(unsigned i = 0;i < gp->num_de_individuos_torneio; i++){
         unsigned p = (int)rand() % gp->tam_populacao;
         unsigned n = 0;
         while(n < i && individuos[n] != NULL && gp->pai[p] != individuos[n] && tira != gp->pai[p]){
@@ -205,6 +205,7 @@ tournament_selection(GP *gp,NO* tira){
                 melhorIndividuo = p;
                 melhorFitness   = gp->pai[p]->erro;
             }
+
         }else
             i--;
     }
@@ -239,10 +240,10 @@ copyCodigo(NO* pt){
         temp->function.func = pt->function.func;
     }
     if(pt->esq != NULL)
-        return copyCodigo(pt->esq);
+        temp->esq = copyCodigo(pt->esq);
     if(pt->dir != NULL)
-        return copyCodigo(pt->dir);
-
+        temp->dir = copyCodigo(pt->dir);
+    return temp;
 }
 
 //escolhe o no
@@ -252,9 +253,11 @@ Escolhe_NO_Ale(NO* pt){
     int p = (int)rand() % 1;
 
     //se for 1 vai ser o no escolhido para fazer o  Crossover se nao vai para dir ou esq 
-    if(p || (pt->dir == NULL && pt->esq == NULL)){
+    //dar uma olhada dpis nesse pt == NULL
+    if(p || pt == NULL || (pt->dir == NULL && pt->esq == NULL)){
         p = (int)rand() % 1;
-        if((p || pt->dir == NULL) && pt->esq != NULL){
+        //dar uma olhada dpis nesse pt == NULL
+        if(pt == NULL || (p || pt->dir == NULL) && pt->esq != NULL){
             //nao sei se pode isso ne nao pode fazer uma tupla para retorno
             return &pt->esq;
         }else{
@@ -277,7 +280,7 @@ Escolhe_NO_Ale(NO* pt){
 NO* 
 Crossover(GP *gp){
     unsigned individo1 = tournament_selection(gp,NULL);
-    unsigned individo2 = tournament_selection(gp,individo1);
+    unsigned individo2 = tournament_selection(gp,gp->pai[individo1]);
     
     NO* individo1_pt_copy = copyCodigo(gp->pai[individo1]);
     //NO* individo2_pt_copy = copyCodigo(gp->pai[individo2]);
@@ -285,9 +288,18 @@ Crossover(GP *gp){
 
     NO** individo1_pt = Escolhe_NO_Ale(individo1_pt_copy);
 
+    if(*individo1_pt != NULL)
+        desalocaArvore(*individo1_pt);
 
-    desalocaArvore(*individo1_pt);
-    *individo1_pt = copyCodigo(*(Escolhe_NO_Ale(gp->pai[individo2])));
+    NO** Escolhe_NO_Ale1 = Escolhe_NO_Ale(gp->pai[individo2]);
+
+    if(*Escolhe_NO_Ale1 != NULL)
+        *individo1_pt = copyCodigo(*Escolhe_NO_Ale1);
+    else{
+        *individo1_pt = NULL;
+    }
+
+    
     return individo1_pt_copy;
 }
 
@@ -407,17 +419,19 @@ runGP(){
 int 
 main(){
     srand(time(NULL));
+
+
     char func_set[] = {'+','-','*','%','\0'};
     char term_set[] = {'c','x','\0'};
     char method     = 'g';
     char explecao[100000];
     explecao[0] = '\0';
     GP gp = init(func_set, term_set, MAX_D, method, 
-    population, 10, crossover, reproduction, mutação);
+    population, 5, crossover, reproduction, mutação);
 
 
     //gp.initialisation_population(&gp);
-    
+
     initialisation_population(&gp);
     explecao[0] = '\0';
     get_exp(gp.pai[0],explecao);
@@ -430,6 +444,21 @@ main(){
 
     for(unsigned i =0; i < population; i++){
         printf("erro(%d) = %f \n",i,gp.pai[i]->erro);
+    }
+
+    for(unsigned i = 0; i < 10;i++){
+        printf("\n-------------------\n");
+        printf("Populacao(%d)",i);
+        printf("\n-------------------\n");
+        novaPopulacao(&gp);
+        fitness(&gp);
+        for(unsigned n =0; i < population; i++){
+            printf("erro(%d) = %f \n",n,gp.pai[n]->erro);
+    }
+    }
+
+    for(unsigned i =0; i < population; i++){
+        desalocaArvore(gp.pai[i]);
     }
     return 0;
 }
