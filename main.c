@@ -58,12 +58,12 @@ typedef struct NO
 
 typedef struct GP
 {
-    NO*   pai[population];
-    char *func_set;
+    NO           *pai[population];
+    char                *func_set;
     char *term_set;unsigned max_d;
-    char method;
-    struct GP   (*init)();
-    void (*fitness)(GP *);
+    char                   method;
+    struct         GP   (*init)();
+    void  (*fitness)(struct GP *);
     
 }GP;
 
@@ -71,6 +71,8 @@ void
 init(){
 
 }
+
+NO *initialize_individual(char *func_set, char *term_set,unsigned max_d, char method);
 
 void 
 initialisation_population(GP *gp){
@@ -128,7 +130,7 @@ initialize_individual(char *func_set,char *term_set,unsigned max_d, char method)
     
         temp->tipo = FUNC;
         temp->function.func = ret.func.func;
-        NO* arg[1];
+        
         //for(unsigned i = 1; i <= 2; i++){// caso a funcaoes precisasse de mais argumetos teria que apricar isso junto com um vetor dinamico de filhos
             temp->esq = initialize_individual(func_set,term_set,max_d - 1, method);
             temp->dir = initialize_individual(func_set,term_set,max_d - 1, method);
@@ -154,10 +156,10 @@ get_exp(NO* pt,char *explecao){
 
     if(pt->tipo == NUM){
         char buffer[100];
-        buffer[0] = '\0';
-        strcat(explecao,sprintf(buffer,"&.99f",pt->function.num));
+        sprintf(buffer,"&.99f",pt->function.num);
+        strcat(explecao,buffer);
     }else{
-        strcat(explecao,pt->function.func);
+        strcat(explecao,&pt->function.func);
     }
 
 
@@ -176,23 +178,23 @@ double valor_arvore(NO* pt,double x){
 
     if(pt->tipo == FUNC){
         if(pt->function.func == '+'){
-            return valor(pt->dir,x) + valor(pt->esq,x);
+            return valor_arvore(pt->dir,x) + valor_arvore(pt->esq,x);
         }
         switch (pt->function.func){
             case '+':
-                return valor(pt->dir,x) + valor(pt->esq,x);
+                return valor_arvore(pt->dir,x) + valor_arvore(pt->esq,x);
                 break;
             case '-':
-                return valor(pt->dir,x) - valor(pt->esq,x);
+                return valor_arvore(pt->dir,x) - valor_arvore(pt->esq,x);
                 break;
             case '*':
-                return valor(pt->dir,x) * valor(pt->esq,x);
+                return valor_arvore(pt->dir,x) * valor_arvore(pt->esq,x);
                 break;
             case '%': {
-                double tem1 = valor(pt->dir,x);
+                double tem1 = valor_arvore(pt->dir,x);
                 if(tem1 == 0)
                     return 1;
-                return valor(pt->esq,x) / tem1;
+                return valor_arvore(pt->esq,x) / tem1;
                 break;
             }
             default: {
