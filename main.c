@@ -13,11 +13,12 @@
 //terminationn individual with gfitness better than 0.1 found
 #define population 10
 
-#define crossover  0.9
-#define reproduction  0.05
-#define mutação  0.05
+#define crossover  0.9 // = 0.9
+#define reproduction  0.95 //0.05
+#define mutação  1 // = 0.05
+
 #define MAX_D 15
-#define tam_list 1000
+
 
 typedef enum{
     F,
@@ -69,6 +70,11 @@ typedef struct GP
     char *term_set;
     unsigned max_d;
     char                   method;
+    unsigned tam_populacao;
+    unsigned num_de_individuos_torneio;
+    double crossoverPorcen;
+    double reproductionPorcen;
+    double mutationPorcen;
     //struct         GP   (*init)();
     void (*fitness)(struct GP *);
     void (*initialisation_population)(struct GP *);
@@ -84,12 +90,22 @@ NO *
 initialize_individual(char *func_set, char *term_set,unsigned max_d, char method);
 
 GP
-init(char *func_set, char *term_set,unsigned max_d, char method){
+init(char *func_set, char *term_set,unsigned max_d, char method, unsigned tam_populacao, 
+    unsigned num_de_individuos_torneio, double crossoverPorcen, double reproductionPorcen, 
+    double mutationPorcen)
+    {
     GP p;
     p.func_set = func_set;
     p.term_set = term_set;
     p.max_d    =    max_d;
     p.method   =   method;
+
+    p.tam_populacao = tam_populacao;
+    p.num_de_individuos_torneio = num_de_individuos_torneio;
+    p.crossoverPorcen = crossoverPorcen;
+    p.reproductionPorcen = reproductionPorcen;
+    p.mutationPorcen = mutationPorcen;
+
 
     //p.fitness  = fitness;
     return p;
@@ -169,9 +185,141 @@ initialize_individual(char *func_set,char *term_set,unsigned max_d, char method)
 
 }
 
-void 
-Crossover(){
+unsigned
+tournament_selection(GP *gp,NO* tira){
+    NO* individuos[gp->num_de_individuos_torneio];
+    int melhorIndividuo  = -1;
+    double melhorFitness = -1;
+    for(unsigned i =0;i < gp->num_de_individuos_torneio;i++)
+        individuos[i] = NULL;
+    
+    for(unsigned i = 0;i < gp->num_de_individuos_torneio;i++){
+        unsigned p = (int)rand() % gp->tam_populacao;
+        unsigned n = 0;
+        while(n < i && individuos[n] != NULL && gp->pai[p] != individuos[n] && tira != gp->pai[p]){
+            n++;
+        }
+        if(gp->pai[p] != individuos[n] && tira != gp->pai[p]){
+            individuos[i] = gp->pai[p];
+            if(gp->pai[p]->erro < melhorFitness || melhorFitness == -1){
+                melhorIndividuo = p;
+                melhorFitness   = gp->pai[p]->erro;
+            }
+        }else
+            i--;
+    }
 
+    if(melhorIndividuo >= 0)
+        return (unsigned)melhorIndividuo;
+    else{
+        printf("\nerr tournament_selection");
+        exit(1);
+    }
+}
+
+void
+desalocaArvore(NO* pt){
+    if(pt->esq != NULL)
+        desalocaArvore(pt->esq);
+    if(pt->dir != NULL)
+        desalocaArvore(pt->dir);
+    free(pt);
+}
+
+NO* 
+copyCodigo(NO* pt){
+    //visita()
+    NO* temp = malloc(sizeof(NO));
+    temp->dir = NULL;
+    temp->esq = NULL;
+    temp->tipo = pt->tipo;
+    if(pt->tipo == NUM)
+        temp->function.num  = pt->function.num;
+    else{
+        temp->function.func = pt->function.func;
+    }
+    if(pt->esq != NULL)
+        return copyCodigo(pt->esq);
+    if(pt->dir != NULL)
+        return copyCodigo(pt->dir);
+
+}
+
+//escolhe o no
+NO** 
+Escolhe_NO_Ale(NO* pt){
+
+    int p = (int)rand() % 1;
+
+    //se for 1 vai ser o no escolhido para fazer o  Crossover se nao vai para dir ou esq 
+    if(p || (pt->dir == NULL && pt->esq == NULL)){
+        p = (int)rand() % 1;
+        if((p || pt->dir == NULL) && pt->esq != NULL){
+            //nao sei se pode isso ne nao pode fazer uma tupla para retorno
+            return &pt->esq;
+        }else{
+            //nao sei se pode isso ne nao pode fazer uma tupla para retorno
+            return &pt->dir;
+        }
+    }else{
+        p = (int)rand() % 1;
+        //vai para dir
+        if((p || pt->dir == NULL) && pt->esq != NULL){
+            Escolhe_NO_Ale(pt->esq);
+        }else{
+            //vai para esq
+            Escolhe_NO_Ale(pt->dir);
+        }
+    }
+
+}
+
+NO* 
+Crossover(GP *gp){
+    unsigned individo1 = tournament_selection(gp,NULL);
+    unsigned individo2 = tournament_selection(gp,individo1);
+    
+    NO* individo1_pt_copy = copyCodigo(gp->pai[individo1]);
+    //NO* individo2_pt_copy = copyCodigo(gp->pai[individo2]);
+
+
+    NO** individo1_pt = Escolhe_NO_Ale(individo1_pt_copy);
+
+
+    desalocaArvore(*individo1_pt);
+    *individo1_pt = copyCodigo(*(Escolhe_NO_Ale(gp->pai[individo2])));
+    return individo1_pt_copy;
+}
+
+void 
+novaPopulacao(GP *gp){
+    NO* novaPopu[gp->tam_populacao];
+    for(unsigned i = 0; i < gp->tam_populacao; i++){
+        double p = (double)rand() /RAND_MAX;
+
+        if(p <= gp->crossoverPorcen){
+            novaPopu[i] = Crossover(gp);
+        }else if(p <= gp->mutationPorcen){
+            unsigned individo1 = tournament_selection(gp,NULL);
+            NO* individo1_pt_copy = copyCodigo(gp->pai[individo1]);
+
+            NO** individo1_pt = Escolhe_NO_Ale(individo1_pt_copy);
+            desalocaArvore(*individo1_pt);
+            *individo1_pt = initialize_individual(gp->func_set,gp->term_set,5/*tem que ver um limite*/,gp->method);
+
+            novaPopu[i] = individo1_pt_copy;
+        }else{
+            //Reprodução
+            unsigned individo1 = tournament_selection(gp,NULL);
+            NO* individo1_pt_copy = copyCodigo(gp->pai[individo1]);
+            novaPopu[i] = individo1_pt_copy;
+        }
+    }
+
+    for(unsigned i = 0; i < gp->tam_populacao; i++){
+        desalocaArvore(gp->pai[i]);
+        gp->pai[i] = novaPopu[i];
+    }
 }
 
 void 
@@ -261,11 +409,15 @@ main(){
     srand(time(NULL));
     char func_set[] = {'+','-','*','%','\0'};
     char term_set[] = {'c','x','\0'};
-    char method     = 'c';
+    char method     = 'g';
     char explecao[100000];
     explecao[0] = '\0';
-    GP gp = init(func_set,term_set,10,method);
+    GP gp = init(func_set, term_set, MAX_D, method, 
+    population, 10, crossover, reproduction, mutação);
+
+
     //gp.initialisation_population(&gp);
+    
     initialisation_population(&gp);
     explecao[0] = '\0';
     get_exp(gp.pai[0],explecao);
