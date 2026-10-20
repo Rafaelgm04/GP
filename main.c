@@ -486,7 +486,8 @@ main(){
         printf("fib(%d): %f\n ",i,valor_arvore(gp.pai[0],v[i-1],v[i]));
     }
 
-
+    get_exp(gp.pai[0],explecao);
+    printf("explecao : %s \n",explecao);
 
     printf("\nfinalizo com sucesso\n");
 
