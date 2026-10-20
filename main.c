@@ -11,13 +11,13 @@
 //initial pop rramped haf-and-half
 //parameters population size 1000, 90% sub tree crossover,5% reproduction,5% sub tree size limits
 //terminationn individual with gfitness better than 0.1 found
-#define population 10
+#define population 100
 
 #define crossover  0.9 // = 0.9
 #define reproduction  0.95 //0.05
 #define mutação  1 // = 0.05
 
-#define MAX_D 1
+#define MAX_D 3
 // se o numerod e torneio for maior que o numero da populacao vai dar loop infinito!!!
 
 typedef enum{
@@ -257,7 +257,7 @@ Escolhe_NO_Ale(NO* pt){
     if(p || pt == NULL || (pt->dir == NULL && pt->esq == NULL)){
         p = (int)rand() % 1;
         //dar uma olhada dpis nesse pt == NULL
-        if(pt == NULL || (p || pt->dir == NULL) && pt->esq != NULL){
+        if(pt == NULL || ((p || pt->dir == NULL) && pt->esq != NULL)){
             //nao sei se pode isso ne nao pode fazer uma tupla para retorno
             return &pt->esq;
         }else{
@@ -316,7 +316,8 @@ novaPopulacao(GP *gp){
             NO* individo1_pt_copy = copyCodigo(gp->pai[individo1]);
 
             NO** individo1_pt = Escolhe_NO_Ale(individo1_pt_copy);
-            desalocaArvore(*individo1_pt);
+            if(*individo1_pt != NULL)
+                desalocaArvore(*individo1_pt);
             *individo1_pt = initialize_individual(gp->func_set,gp->term_set,5/*tem que ver um limite*/,gp->method);
 
             novaPopu[i] = individo1_pt_copy;
@@ -329,7 +330,8 @@ novaPopulacao(GP *gp){
     }
 
     for(unsigned i = 0; i < gp->tam_populacao; i++){
-        desalocaArvore(gp->pai[i]);
+        if(gp->pai[i] != NULL)
+            desalocaArvore(gp->pai[i]);
         gp->pai[i] = novaPopu[i];
     }
 }
@@ -354,36 +356,45 @@ get_exp(NO* pt,char *explecao){
 }
 
 double 
-valor_arvore(NO* pt,double x){
+valor_arvore(NO* pt,double x,double y){
     if(pt->tipo == NUM)
         return pt->function.num;
     
     if(pt->tipo == VARI)
-        return x;
-
-
+        switch (pt->function.func){
+            case 'x':    
+                return x;
+                break;
+            case 'y':
+                return y;
+                break;
+            default: 
+                printf("func invalida\n");
+                exit(1);
+                break;
+        }
     if(pt->tipo == FUNC){
         if(pt->function.func == '+'){
-            return valor_arvore(pt->dir,x) + valor_arvore(pt->esq,x);
+            return valor_arvore(pt->dir,x,y) + valor_arvore(pt->esq,x,y);
         }
         switch (pt->function.func){
             case '+':{
-                return valor_arvore(pt->dir,x) + valor_arvore(pt->esq,x);
+                return valor_arvore(pt->dir,x,y) + valor_arvore(pt->esq,x,y);
                 break;
                 }
             case '-':{
-                return valor_arvore(pt->dir,x) - valor_arvore(pt->esq,x);
+                return valor_arvore(pt->dir,x,y) - valor_arvore(pt->esq,x,y);
                 break;
                 }
             case '*':{
-                return valor_arvore(pt->dir,x) * valor_arvore(pt->esq,x);
+                return valor_arvore(pt->dir,x,y) * valor_arvore(pt->esq,x,y);
                 break;
                 }
             case '%': {
-                double tem1 = valor_arvore(pt->dir,x);
+                double tem1 = valor_arvore(pt->dir,x,y);
                 if(tem1 == 0)
                     return 1;
-                return valor_arvore(pt->esq,x) / tem1;
+                return valor_arvore(pt->esq,x,y) / tem1;
                 break;
             }
             default: {
@@ -404,7 +415,9 @@ fitness(GP *gp){
     float erro = 0;
     for(unsigned i = 0;i < population;i++){
         for(unsigned n = 0;n <100; n++){
-            erro += fabs(valor_arvore(gp->pai[i],n) - v[n]); 
+            for(unsigned t = 0;t <100; t++){
+                erro += fabs(valor_arvore(gp->pai[i],n,t) - v[n]); 
+            }
         }
         gp->pai[i]->erro = erro;
     }
@@ -422,23 +435,25 @@ main(){
 
 
     char func_set[] = {'+','-','*','%','\0'};
-    char term_set[] = {'c','x','\0'};
+    char term_set[] = {'c','x','y','\0'};
     char method     = 'g';
-    char explecao[100000];
+    char explecao[1000000];
     explecao[0] = '\0';
     GP gp = init(func_set, term_set, MAX_D, method, 
-    population, 5, crossover, reproduction, mutação);
+    population, 10, crossover, reproduction, mutação);
 
 
-    //gp.initialisation_population(&gp);
+
 
     initialisation_population(&gp);
     explecao[0] = '\0';
+    
     get_exp(gp.pai[0],explecao);
     printf("explecao : %s \n",explecao);
 
+
    
-    printf("valor com 2 :%f \n",valor_arvore(gp.pai[0],2));
+    printf("valor com 2 :%f \n",valor_arvore(gp.pai[0],1,2));
 
     fitness(&gp);
 
@@ -450,16 +465,32 @@ main(){
         printf("\n-------------------\n");
         printf("Populacao(%d)",i);
         printf("\n-------------------\n");
+
         novaPopulacao(&gp);
         fitness(&gp);
-        for(unsigned n =0; i < population; i++){
+        for(unsigned n =0; n < population; n++){
             printf("erro(%d) = %f \n",n,gp.pai[n]->erro);
     }
     }
 
-    for(unsigned i =0; i < population; i++){
-        desalocaArvore(gp.pai[i]);
+    for(unsigned i = 0; i < population; i++){
+        if(gp.pai[i] != NULL)
+            desalocaArvore(gp.pai[i]);
     }
+    unsigned v[100] = {1,1};
+    for(unsigned i = 2;i < 100;i++){
+        v[i] = v[i-2] + v[i-1];
+    }
+
+    for(unsigned i = 1;i < 100;i++){
+        printf("fib(%d): %f\n ",i,valor_arvore(gp.pai[0],v[i-1],v[i]));
+    }
+
+
+
+    printf("\nfinalizo com sucesso\n");
+
+
     return 0;
 }
 
