@@ -17,7 +17,11 @@
 #define reproduction  0.95 //0.05
 #define mutação  1 // = 0.05
 
-#define MAX_D 3
+#define mutação_limte_tamanho_novo_codigo 10
+#define numero_selecao_torneio 20
+#define geracao_das_costante unsigned
+
+#define MAX_D 10
 // se o numerod e torneio for maior que o numero da populacao vai dar loop infinito!!!
 
 typedef enum{
@@ -122,21 +126,23 @@ initialisation_population(GP *gp){
 
 tupla_retorno  
 choose_random_element_term(char *set,SET type){
-    int p = (int)(rand() % strlen(set));
+    unsigned p = (unsigned)(rand() % strlen(set));
 
 
     switch (set[p])
     {
     case 'c':{
-        return (tupla_retorno){.func.num = (double)rand(),.type = NUM};
+        return (tupla_retorno){.func.num = (geracao_das_costante)rand(),.type = NUM};
         break;
     }
     
     default:
         if(type == TERM_SET){
-            if(set[p] == 'c')
-                return (tupla_retorno){{.func = (double)rand()},.type = NUM};
-            else{
+            if(set[p] == 'c'){
+                printf("\nfoi exec");
+                exit(-1);
+                return (tupla_retorno){{.func = (geracao_das_costante)rand()},.type = NUM};
+            }else{
                 return (tupla_retorno){{.func = set[p]},.type = VARI};
             }
         }
@@ -318,7 +324,7 @@ novaPopulacao(GP *gp){
             NO** individo1_pt = Escolhe_NO_Ale(individo1_pt_copy);
             if(*individo1_pt != NULL)
                 desalocaArvore(*individo1_pt);
-            *individo1_pt = initialize_individual(gp->func_set,gp->term_set,5/*tem que ver um limite*/,gp->method);
+            *individo1_pt = initialize_individual(gp->func_set,gp->term_set,mutação_limte_tamanho_novo_codigo/*tem que ver um limite*/,gp->method);
 
             novaPopu[i] = individo1_pt_copy;
         }else{
@@ -339,20 +345,33 @@ novaPopulacao(GP *gp){
 void 
 get_exp(NO* pt,char *explecao){
 
-    if(pt->esq != NULL)
+    if(pt->esq != NULL){
+        //char buffer[] = {'(','\0'};
+        
+        //strcat(explecao,buffer);
+        printf("(");
         get_exp(pt->esq,explecao);
-
+        
+    }
     if(pt->tipo == NUM){
-        char buffer[100];
+        char buffer[30];
         sprintf(buffer,"%.5f",pt->function.num);
-        strcat(explecao,buffer);
+        printf("%s",buffer);
+        //strcat(explecao,buffer);
     }else{
-        strcat(explecao,&pt->function.func);
+        //strcat(explecao,&pt->function.func);
+        printf("%c",pt->function.func);
     }
 
 
-    if(pt->dir != NULL)
+    if(pt->dir != NULL){
+        
         get_exp(pt->dir,explecao);
+        printf(")");
+        //char buffer[] = {')','\0'};
+        //strcat(explecao,buffer);
+    
+    }
 }
 
 double 
@@ -404,6 +423,8 @@ valor_arvore(NO* pt,double x,double y){
             }
         }
     }
+    printf("O pt nao entro em nenhum caso da funcao valor_arvore \n");
+    exit(1);
 }
 
 void
@@ -414,10 +435,12 @@ fitness(GP *gp){
     }
     float erro = 0;
     for(unsigned i = 0;i < population;i++){
-        for(unsigned n = 0;n <100; n++){
-            for(unsigned t = 0;t <100; t++){
-                erro += fabs(valor_arvore(gp->pai[i],n,t) - v[n]); 
-            }
+        for(unsigned n = 1;n <20; n++){
+            //for(unsigned t = 0;t <100; t++){
+                //erro += fabs(valor_arvore(gp->pai[i],n,t) - v[n]);
+                erro += fabs(valor_arvore(gp->pai[i],v[n-1],v[n]) - v[n-1]);
+                //valor_arvore(gp.pai[0],v[i-1],v[i])
+            //}
         }
         gp->pai[i]->erro = erro;
     }
@@ -431,16 +454,17 @@ runGP(){
 
 int 
 main(){
-    srand(time(NULL));
-
+    unsigned int seed = (unsigned int)time(NULL);
+    srand(seed);
 
     char func_set[] = {'+','-','*','%','\0'};
     char term_set[] = {'c','x','y','\0'};
-    char method     = 'g';
-    char explecao[1000000];
+    char method     = 'c';
+    //char explecao[1000000];
+    char *explecao = malloc(sizeof(char)*1000000000);
     explecao[0] = '\0';
     GP gp = init(func_set, term_set, MAX_D, method, 
-    population, 10, crossover, reproduction, mutação);
+    population, numero_selecao_torneio, crossover, reproduction, mutação);
 
 
 
@@ -448,8 +472,8 @@ main(){
     initialisation_population(&gp);
     explecao[0] = '\0';
     
-    get_exp(gp.pai[0],explecao);
-    printf("explecao : %s \n",explecao);
+    //get_exp(gp.pai[0],explecao);
+    //printf("explecao : %s \n",explecao);
 
 
    
@@ -457,41 +481,84 @@ main(){
 
     fitness(&gp);
 
-    for(unsigned i =0; i < population; i++){
-        printf("erro(%d) = %f \n",i,gp.pai[i]->erro);
-    }
 
-    for(unsigned i = 0; i < 10;i++){
+    unsigned flag = 1;
+    unsigned j = 0;
+    for(; j < 1000 && flag ;j++){
+        double erro[population];
+
+        for(unsigned n =0; n < population; n++){
+            //printf("erro(%d) = %f \n",n,gp.pai[n]->erro);
+            erro[n] = gp.pai[n]->erro;
+        }
         printf("\n-------------------\n");
-        printf("Populacao(%d)",i);
+        printf("Populacao(%d)",j);
         printf("\n-------------------\n");
 
         novaPopulacao(&gp);
         fitness(&gp);
-        for(unsigned n =0; n < population; n++){
-            printf("erro(%d) = %f \n",n,gp.pai[n]->erro);
-    }
+        
+        flag = 0;
+        unsigned d = 0;
+        while(d < population && !flag){
+            
+            if(erro[d] != gp.pai[d]->erro){
+                flag = 1;
+            }
+            d++;
+        }
+
     }
 
-    for(unsigned i = 0; i < population; i++){
-        if(gp.pai[i] != NULL)
-            desalocaArvore(gp.pai[i]);
-    }
+    
     unsigned v[100] = {1,1};
     for(unsigned i = 2;i < 100;i++){
         v[i] = v[i-2] + v[i-1];
     }
 
-    for(unsigned i = 1;i < 100;i++){
-        printf("fib(%d): %f\n ",i,valor_arvore(gp.pai[0],v[i-1],v[i]));
+    NO* melhor_erros = gp.pai[0];
+    unsigned d = 0;
+    while(d < population){
+        if(melhor_erros->erro > gp.pai[d]->erro)
+            melhor_erros = gp.pai[d];
+        d++;
     }
-
-    get_exp(gp.pai[0],explecao);
-    printf("explecao : %s \n",explecao);
-
+    
+    for(unsigned i = 1;i < 20;i++){
+        printf("fib(%d): %f\n ",i,valor_arvore(melhor_erros,v[i-1],v[i]));
+    }
+    /*
+    for(unsigned n = 0;n < 100;n++){
+        printf("\n--------------------------\n");
+        printf("gp(%d)",n);
+        for(unsigned i = 1;i < 20;i++){
+            printf("fib(%d): %f\n ",i,valor_arvore(gp.pai[n],v[i-1],v[i]));
+        }
+    }
+    */
+    //get_exp(melhor_erros,explecao);
+    //printf("explecao : %s \n",explecao);
+    printf("\n------------------------------------------------\n");
+    printf("melhor erro %f",melhor_erros->erro);
     printf("\nfinalizo com sucesso\n");
 
 
+
+
+
+
+
+
+
+
+
+
+
+    for(unsigned i = 0; i < population; i++){
+        if(gp.pai[i] != NULL)
+            desalocaArvore(gp.pai[i]);
+    }
+    printf("Seed: %u\n", seed);
     return 0;
 }
 
